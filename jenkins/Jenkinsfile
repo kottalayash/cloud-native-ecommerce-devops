@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'ap-south-1'
+        ECR_REGISTRY = credentials('ecr-registry')
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'cd product-service && npm install && npm test'
+                sh 'cd order-service && npm install && npm test'
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker build -t $ECR_REGISTRY/product-service:$IMAGE_TAG product-service'
+                sh 'docker build -t $ECR_REGISTRY/order-service:$IMAGE_TAG order-service'
+                sh 'docker build -t $ECR_REGISTRY/frontend:$IMAGE_TAG frontend'
+            }
+        }
+
+        stage('Push Images') {
+            steps {
+                sh '''
+                  aws ecr get-login-password --region $AWS_REGION |
+                  docker login --username AWS --password-stdin $ECR_REGISTRY
+
+                  docker push $ECR_REGISTRY/product-service:$IMAGE_TAG
+                  docker push $ECR_REGISTRY/order-service:$IMAGE_TAG
+                  docker push $ECR_REGISTRY/frontend:$IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                sh '''
+                  aws eks update-kubeconfig --region $AWS_REGION --name ecommerce-eks
+                  kubectl -n ecommerce set image deployment/product-service product-service=$ECR_REGISTRY/product-service:$IMAGE_TAG
+                  kubectl -n ecommerce set image deployment/order-service order-service=$ECR_REGISTRY/order-service:$IMAGE_TAG
+                  kubectl -n ecommerce set image deployment/frontend frontend=$ECR_REGISTRY/frontend:$IMAGE_TAG
+                  kubectl -n ecommerce rollout status deployment/product-service
+                  kubectl -n ecommerce rollout status deployment/order-service
+                  kubectl -n ecommerce rollout status deployment/frontend
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker image prune -f || true'
+        }
+    }
+}
