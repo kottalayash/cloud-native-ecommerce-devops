@@ -45,7 +45,7 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 sh '''
-                  aws eks update-kubeconfig --region $AWS_REGION --name ecommerce-eks
+                  aws eks update-kubeconfig --region $AWS_REGION --name my-eks
                   kubectl -n ecommerce set image deployment/product-service product-service=$ECR_REGISTRY/product-service:$IMAGE_TAG
                   kubectl -n ecommerce set image deployment/order-service order-service=$ECR_REGISTRY/order-service:$IMAGE_TAG
                   kubectl -n ecommerce set image deployment/frontend frontend=$ECR_REGISTRY/frontend:$IMAGE_TAG
