@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
-        ECR_REGISTRY = credentials('ecr-registry')
+        ECR_REGISTRY = '631749620851.dkr.ecr.ap-south-1.amazonaws.com/cloudshop'
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
